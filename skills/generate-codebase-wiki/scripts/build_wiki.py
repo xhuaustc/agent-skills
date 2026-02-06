@@ -40,6 +40,7 @@ from pathlib import Path
 # Markdown -> HTML conversion (lightweight, no external dependencies)
 # ---------------------------------------------------------------------------
 
+
 def simple_md_to_html(md_content: str) -> str:
     """Convert Markdown content to HTML (subset parser, no dependencies)."""
     html = md_content
@@ -59,6 +60,7 @@ def simple_md_to_html(md_content: str) -> str:
             anchor = re.sub(r"[^\w\s-]", "", text.lower())
             anchor = re.sub(r"\s+", "-", anchor).strip("-")
             return f'<h{level} id="{anchor}">{text}</h{level}>'
+
         return _replacer
 
     html = re.sub(r"^#### (.+)$", _heading_replacer(4), html, flags=re.MULTILINE)
@@ -142,6 +144,7 @@ def simple_md_to_html(md_content: str) -> str:
 # Table of Contents extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_toc(md_content: str) -> list[dict]:
     """Extract headings from Markdown content for table-of-contents generation."""
     toc = []
@@ -172,6 +175,7 @@ def build_toc_html(toc: list[dict]) -> str:
 # Page discovery & metadata
 # ---------------------------------------------------------------------------
 
+
 def extract_title(md_content: str, fallback: str) -> str:
     """Extract the first H1 heading from Markdown content as the page title."""
     match = re.search(r"^#\s+(.+)$", md_content, re.MULTILINE)
@@ -193,7 +197,9 @@ def slugify(name: str) -> str:
     return re.sub(r"[^\w-]", "-", name.lower()).strip("-")
 
 
-def _resolve_page(stem_or_path: str, md_files: dict[str, Path]) -> tuple[str, Path] | None:
+def _resolve_page(
+    stem_or_path: str, md_files: dict[str, Path]
+) -> tuple[str, Path] | None:
     """Resolve a config page entry to a (key, Path) pair."""
     # Try exact path first (e.g. "modules/auth-module")
     clean = stem_or_path.replace(".md", "")
@@ -312,12 +318,58 @@ def discover_pages(
             continue
         pages.append(_make_page(key, md_path))
 
+    # --- Auto-generate sections from directory structure ---
+    # If no sections were defined by config, group pages by their subdirectory.
+    if sections is None and any(p["section_path"] for p in pages):
+        sections = []
+        dir_groups: dict[str, list[str]] = {}  # dir_name -> [slug, ...]
+        root_slugs: list[str] = []
+
+        for page in pages:
+            if page["section_path"]:
+                dir_name = page["section_path"]
+                dir_groups.setdefault(dir_name, []).append(page["slug"])
+            else:
+                root_slugs.append(page["slug"])
+
+        # Root-level pages first (as a section if there are other sections)
+        if root_slugs and dir_groups:
+            sections.append(
+                {
+                    "title": "Overview",
+                    "pages": root_slugs,
+                    "subsections": [],
+                }
+            )
+
+        # Each subdirectory becomes a section
+        for dir_name in sorted(dir_groups.keys()):
+            # Prettify directory name: "api" -> "API", "core-services" -> "Core Services"
+            pretty = dir_name.replace("-", " ").replace("_", " ")
+            # All-lowercase short names -> uppercase; otherwise title-case
+            if len(pretty) <= 4 and pretty.isalpha():
+                pretty = pretty.upper()
+            else:
+                pretty = pretty.title()
+            sections.append(
+                {
+                    "title": pretty,
+                    "pages": dir_groups[dir_name],
+                    "subsections": [],
+                }
+            )
+
+        # If only root-level pages exist (no subdirs), keep sections as None
+        if not dir_groups:
+            sections = None
+
     return pages, sections
 
 
 # ---------------------------------------------------------------------------
 # HTML generation
 # ---------------------------------------------------------------------------
+
 
 def relative_href(from_html: str, to_html: str) -> str:
     """Compute the relative URL from one HTML page to another.
@@ -339,9 +391,7 @@ def build_flat_nav_html(pages: list[dict], active_slug: str, current_html: str) 
     for page in pages:
         active = ' class="active"' if page["slug"] == active_slug else ""
         href = relative_href(current_html, page["html_name"])
-        items.append(
-            f'<li><a href="{href}"{active}>{page["title"]}</a></li>'
-        )
+        items.append(f'<li><a href="{href}"{active}>{page["title"]}</a></li>')
     return "\n            ".join(items)
 
 
@@ -363,7 +413,7 @@ def build_hierarchical_nav_html(
         indent = "  " * depth
 
         html = f'{indent}<li class="nav-section">\n'
-        html += f'{indent}  <details{open_attr}>\n'
+        html += f"{indent}  <details{open_attr}>\n"
         html += f'{indent}    <summary class="nav-section-title">{section["title"]}</summary>\n'
         html += f'{indent}    <ul class="nav-section-pages">\n'
 
@@ -374,7 +424,7 @@ def build_hierarchical_nav_html(
                 href = relative_href(current_html, page["html_name"])
                 html += (
                     f'{indent}      <li><a href="{href}"{active}>'
-                    f'{page["title"]}</a></li>\n'
+                    f"{page['title']}</a></li>\n"
                 )
 
         for sub in section.get("subsections", []):
@@ -404,9 +454,7 @@ def build_hierarchical_nav_html(
         if page["slug"] not in sectioned_slugs:
             active = ' class="active"' if page["slug"] == active_slug else ""
             href = relative_href(current_html, page["html_name"])
-            items.append(
-                f'<li><a href="{href}"{active}>{page["title"]}</a></li>\n'
-            )
+            items.append(f'<li><a href="{href}"{active}>{page["title"]}</a></li>\n')
 
     return "".join(items)
 
@@ -437,7 +485,7 @@ def build_breadcrumbs(page: dict, sections: list[dict] | None) -> str:
     home_icon = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">'
         '<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 '
-        '001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 '
+        "001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 "
         '001.414-1.414l-7-7z"/></svg>'
     )
     crumbs = [f'<span class="breadcrumb-home">{home_icon}</span>']
@@ -445,7 +493,9 @@ def build_breadcrumbs(page: dict, sections: list[dict] | None) -> str:
         crumbs.append('<span class="breadcrumb-sep">&rsaquo;</span>')
         crumbs.append(f'<span class="breadcrumb-item">{part}</span>')
     crumbs.append('<span class="breadcrumb-sep">&rsaquo;</span>')
-    crumbs.append(f'<span class="breadcrumb-item breadcrumb-current">{page["title"]}</span>')
+    crumbs.append(
+        f'<span class="breadcrumb-item breadcrumb-current">{page["title"]}</span>'
+    )
 
     return f'<nav class="breadcrumbs">{"".join(crumbs)}</nav>'
 
@@ -458,11 +508,13 @@ def build_search_index(pages: list[dict]) -> str:
         text = extract_text_content(content)
         # Truncate to keep index manageable
         text = text[:3000]
-        index.append({
-            "title": page["title"],
-            "url": page["html_name"],
-            "text": text,
-        })
+        index.append(
+            {
+                "title": page["title"],
+                "url": page["html_name"],
+                "text": text,
+            }
+        )
     return json.dumps(index, ensure_ascii=False)
 
 
@@ -476,29 +528,29 @@ def get_nvidia_logo_svg() -> str:
         '<svg class="nvidia-logo" xmlns="http://www.w3.org/2000/svg" '
         'viewBox="0 0 3096.56 1065.98" role="img" aria-label="NVIDIA">'
         '<path fill="#76b900" d="M562.33,440.33V398.81c4-.28,8.1-.5,12.25-.63,'
-        '113.55-3.57,188,97.56,188,97.56S682.16,607.49,595.9,607.49a104.51,'
-        '104.51,0,0,1-33.57-5.37V476.24c44.21,5.34,53.09,24.86,79.68,69.16'
-        'l59.1-49.84S658,439,585.24,439a214.88,214.88,0,0,0-22.91,1.35m0-137.14'
-        'v62c4.08-.32,8.16-.58,12.25-.73C732.49,359.15,835.35,494,835.35,494'
-        'S717.19,637.65,594.1,637.65a181.36,181.36,0,0,1-31.77-2.8v38.33a208.94,'
-        '208.94,0,0,0,26.46,1.72c114.55,0,197.39-58.5,277.62-127.74,13.29,10.65,'
-        '67.74,36.55,78.94,47.91-76.28,63.85-254,115.31-354.8,115.31-9.71,0-19-'
-        '.58-28.22-1.46v53.87H997.74V303.19Zm0,298.93v32.73C456.38,616,427,505.83,'
-        '427,505.83s50.87-56.37,135.36-65.5v35.91l-.16,0c-44.34-5.33-79,36.1-79,'
-        '36.1s19.41,69.73,79.14,89.8M374.15,501.05S437,408.39,562.33,398.81V365.2'
-        'C423.46,376.35,303.19,494,303.19,494S371.3,690.89,562.33,708.92V673.18'
+        "113.55-3.57,188,97.56,188,97.56S682.16,607.49,595.9,607.49a104.51,"
+        "104.51,0,0,1-33.57-5.37V476.24c44.21,5.34,53.09,24.86,79.68,69.16"
+        "l59.1-49.84S658,439,585.24,439a214.88,214.88,0,0,0-22.91,1.35m0-137.14"
+        "v62c4.08-.32,8.16-.58,12.25-.73C732.49,359.15,835.35,494,835.35,494"
+        "S717.19,637.65,594.1,637.65a181.36,181.36,0,0,1-31.77-2.8v38.33a208.94,"
+        "208.94,0,0,0,26.46,1.72c114.55,0,197.39-58.5,277.62-127.74,13.29,10.65,"
+        "67.74,36.55,78.94,47.91-76.28,63.85-254,115.31-354.8,115.31-9.71,0-19-"
+        ".58-28.22-1.46v53.87H997.74V303.19Zm0,298.93v32.73C456.38,616,427,505.83,"
+        "427,505.83s50.87-56.37,135.36-65.5v35.91l-.16,0c-44.34-5.33-79,36.1-79,"
+        "36.1s19.41,69.73,79.14,89.8M374.15,501.05S437,408.39,562.33,398.81V365.2"
+        "C423.46,376.35,303.19,494,303.19,494S371.3,690.89,562.33,708.92V673.18"
         'C422.15,655.55,374.15,501.05,374.15,501.05Z"/>'
-        '<path fill="#fff" d="M1782,390l0,301.68h85.2V390Zm-670.22-.41V691.71h86'
-        'V462.33l66.59,0c22.06,0,37.77,5.48,48.4,16.83,13.48,14.36,19,37.51,19,'
-        '79.87V691.71l83.27,0V524.81c0-119.12-75.93-135.19-150.21-135.19h-153'
-        'm807.4.43V691.71h138.19c73.63,0,97.66-12.25,123.65-39.7,18.37-19.27,'
-        '30.24-61.58,30.24-107.82,0-42.4-10.05-80.23-27.58-103.78-31.56-42.13-77'
-        '-50.36-144.92-50.36Zm84.52,65.68h36.63c53.14,0,87.51,23.87,87.51,85.79'
-        's-34.37,85.8-87.51,85.8h-36.63Zm-344.54-65.68-71.1,239.08-68.14-239.07'
-        'h-92l97.31,301.66h122.79l98.07-301.66Zm591.74,301.66h85.21V390.06h-85.23'
-        'Zm238.84-301.56-119,301.46h84l18.82-53.29h140.8l17.82,53.29h91.21'
+        '<path fill="#000" d="M1782,390l0,301.68h85.2V390Zm-670.22-.41V691.71h86'
+        "V462.33l66.59,0c22.06,0,37.77,5.48,48.4,16.83,13.48,14.36,19,37.51,19,"
+        "79.87V691.71l83.27,0V524.81c0-119.12-75.93-135.19-150.21-135.19h-153"
+        "m807.4.43V691.71h138.19c73.63,0,97.66-12.25,123.65-39.7,18.37-19.27,"
+        "30.24-61.58,30.24-107.82,0-42.4-10.05-80.23-27.58-103.78-31.56-42.13-77"
+        "-50.36-144.92-50.36Zm84.52,65.68h36.63c53.14,0,87.51,23.87,87.51,85.79"
+        "s-34.37,85.8-87.51,85.8h-36.63Zm-344.54-65.68-71.1,239.08-68.14-239.07"
+        "h-92l97.31,301.66h122.79l98.07-301.66Zm591.74,301.66h85.21V390.06h-85.23"
+        "Zm238.84-301.56-119,301.46h84l18.82-53.29h140.8l17.82,53.29h91.21"
         'L2603.56,390.13Zm55.31,55,51.61,141.23H2491.82Z"/>'
-        '</svg>'
+        "</svg>"
     )
 
 
@@ -515,8 +567,8 @@ def get_css() -> str:
             --accent-bg: #f0f8e0;
             --bg: #ffffff;
             --sidebar-bg: #ffffff;
-            --header-bg: #1a1a1a;
-            --header-text: #ffffff;
+            --header-bg: #ffffff;
+            --header-text: #1a1a1a;
             --border: #e0e0e0;
             --border-light: #eeeeee;
             --text: #1a1a1a;
@@ -543,7 +595,7 @@ def get_css() -> str:
             height: var(--header-height); background: var(--header-bg);
             display: flex; align-items: center; justify-content: space-between;
             padding: 0 24px; position: sticky; top: 0; z-index: 200;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border);
             flex-shrink: 0;
         }
         .top-bar-brand {
@@ -551,10 +603,10 @@ def get_css() -> str:
             color: var(--header-text); text-decoration: none;
         }
         .top-bar-brand:hover { text-decoration: none; }
-        .nvidia-logo { height: 22px; width: auto; display: block; }
+        .nvidia-logo { height: 48px; width: auto; display: block; }
         .top-bar-title {
-            font-size: 0.92em; font-weight: 400; color: #cccccc;
-            border-left: 1px solid #555; padding-left: 14px;
+            font-size: 20px; font-weight: 700; color: var(--text);
+            border-left: 1px solid var(--border); padding-left: 14px;
         }
         .top-bar-actions { display: flex; align-items: center; gap: 16px; }
 
@@ -562,17 +614,18 @@ def get_css() -> str:
         .topbar-search { position: relative; }
         .topbar-search-input {
             width: 220px; padding: 5px 32px 5px 10px;
-            border: 1px solid #555; border-radius: 4px;
-            background: #2a2a2a; color: #eee; font-size: 0.82em;
+            border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg); color: var(--text); font-size: 0.82em;
             outline: none; transition: border-color 0.2s, width 0.2s;
         }
-        .topbar-search-input::placeholder { color: #999; }
+        .topbar-search-input::placeholder { color: var(--text-tertiary); }
         .topbar-search-input:focus {
-            border-color: var(--accent); width: 300px; background: #333;
+            border-color: var(--accent); width: 300px;
+            box-shadow: 0 0 0 3px rgba(118,185,0,0.12);
         }
         .topbar-search-icon {
             position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-            color: #999; font-size: 0.85em; pointer-events: none;
+            color: var(--text-tertiary); font-size: 0.85em; pointer-events: none;
         }
         .search-results {
             position: absolute; top: calc(100% + 4px); right: 0; width: 420px;
@@ -673,7 +726,6 @@ def get_css() -> str:
         /* ==================== Main Content ==================== */
         main {
             flex: 1; padding: 28px 48px 60px; min-width: 0;
-            max-width: 860px;
         }
 
         /* Breadcrumbs */
@@ -732,6 +784,22 @@ def get_css() -> str:
             background: none; padding: 0; border: none;
             font-size: 1em; color: inherit;
         }
+        pre strong, pre b {
+            display: block; color: #80cbc4; font-weight: 700;
+            font-size: 1.1em; margin-top: 12px;
+            padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.12);
+        }
+        pre strong:first-child, pre b:first-child,
+        pre code > strong:first-child, pre code > b:first-child {
+            margin-top: 0; padding-top: 0; border-top: none;
+        }
+        pre h1, pre h2, pre h3, pre h4, pre h5, pre h6 {
+            color: #ffcc80; font-weight: 700; margin: 14px 0 6px;
+            border: none; padding: 0;
+        }
+        pre h1 { font-size: 1.3em; color: #ffe082; }
+        pre h2 { font-size: 1.15em; }
+        pre h3 { font-size: 1.05em; }
 
         /* Tables */
         .table-wrapper { overflow-x: auto; margin: 16px 0; }
@@ -779,6 +847,27 @@ def get_css() -> str:
         .mermaid {
             margin: 24px 0; text-align: center;
             background: #fafafa; border-radius: 8px; padding: 16px;
+            cursor: zoom-in; transition: box-shadow 0.2s;
+        }
+        .mermaid:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+
+        /* Mermaid lightbox overlay */
+        .mermaid-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center; cursor: zoom-out;
+        }
+        .mermaid-overlay.visible { display: flex; }
+        .mermaid-overlay-content {
+            background: #fff; border-radius: 12px; padding: 32px;
+            width: 90vw; height: 88vh; overflow: hidden;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+            display: flex; align-items: center; justify-content: center;
+            cursor: grab; position: relative;
+        }
+        .mermaid-overlay-content svg {
+            display: block; width: 100%; height: auto; max-height: 85vh;
+            transform-origin: center center;
         }
 
         /* ==================== Right TOC ("On this page") ==================== */
@@ -808,7 +897,6 @@ def get_css() -> str:
         /* ==================== Responsive ==================== */
         @media (max-width: 1200px) {
             aside.toc { display: none; }
-            main { max-width: 100%; }
         }
         @media (max-width: 768px) {
             header.top-bar { padding: 0 16px; }
@@ -909,7 +997,9 @@ def render_page(
 
     # Navigation
     if sections:
-        nav_html = build_hierarchical_nav_html(sections, pages, active_slug, current_html)
+        nav_html = build_hierarchical_nav_html(
+            sections, pages, active_slug, current_html
+        )
     else:
         nav_html = build_flat_nav_html(pages, active_slug, current_html)
 
@@ -947,11 +1037,16 @@ def render_page(
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       mermaid.initialize({{ startOnLoad: true }});
+      // After mermaid renders, mark rendered containers for lightbox
+      await mermaid.run();
+      document.querySelectorAll('.mermaid[data-processed]').forEach(function(el) {{
+        el.dataset.lightbox = 'true';
+      }});
     </script>
 </head>
 <body>
     <header class="top-bar">
-        <a class="top-bar-brand" href="{relative_href(current_html, 'index.html')}">
+        <a class="top-bar-brand" href="{relative_href(current_html, "index.html")}">
             {get_nvidia_logo_svg()}
             <span class="top-bar-title">{project_title}</span>
         </a>
@@ -975,7 +1070,120 @@ def render_page(
             {body_html}
         </main>{toc_aside}
     </div>
+    <div class="mermaid-overlay" id="mermaid-overlay">
+        <div class="mermaid-overlay-content" id="mermaid-overlay-content"></div>
+    </div>
     {search_script}
+    <script>
+    (function() {{
+      var overlay = document.getElementById('mermaid-overlay');
+      var content = document.getElementById('mermaid-overlay-content');
+      if (!overlay || !content) return;
+
+      var scale = 1;
+      var translateX = 0;
+      var translateY = 0;
+      var isDragging = false;
+      var dragStartX = 0;
+      var dragStartY = 0;
+      var dragStartTX = 0;
+      var dragStartTY = 0;
+
+      function applyTransform() {{
+        var svg = content.querySelector('svg');
+        if (svg) svg.style.transform = 'translate(' + translateX + 'px,' + translateY + 'px) scale(' + scale + ')';
+      }}
+
+      function resetTransform() {{
+        scale = 1; translateX = 0; translateY = 0;
+      }}
+
+      // Use event delegation so it works even after mermaid replaces DOM nodes
+      document.addEventListener('click', function(e) {{
+        var target = e.target.closest('.mermaid');
+        if (target) {{
+          var svg = target.querySelector('svg');
+          if (svg) {{
+            content.innerHTML = '';
+            var clone = svg.cloneNode(true);
+            // Ensure viewBox exists so SVG scales properly when we resize it
+            if (!clone.getAttribute('viewBox')) {{
+              var w = svg.getAttribute('width') || svg.getBoundingClientRect().width;
+              var h = svg.getAttribute('height') || svg.getBoundingClientRect().height;
+              w = parseFloat(w) || 800;
+              h = parseFloat(h) || 600;
+              clone.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+            }}
+            clone.removeAttribute('width');
+            clone.removeAttribute('height');
+            clone.removeAttribute('style');
+            clone.style.width = '100%';
+            clone.style.height = 'auto';
+            clone.style.maxHeight = '85vh';
+            clone.style.transformOrigin = 'center center';
+            clone.style.transition = 'transform 0.15s ease';
+            content.appendChild(clone);
+            resetTransform();
+            overlay.classList.add('visible');
+          }}
+        }}
+      }});
+
+      // Mouse wheel zoom inside the overlay
+      content.addEventListener('wheel', function(e) {{
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? -0.1 : 0.1;
+        var newScale = Math.min(Math.max(scale + delta, 0.2), 10);
+        // Zoom toward cursor position
+        var rect = content.getBoundingClientRect();
+        var cx = e.clientX - rect.left - rect.width / 2;
+        var cy = e.clientY - rect.top - rect.height / 2;
+        var ratio = newScale / scale;
+        translateX = cx - ratio * (cx - translateX);
+        translateY = cy - ratio * (cy - translateY);
+        scale = newScale;
+        applyTransform();
+      }}, {{ passive: false }});
+
+      // Mouse drag to pan inside the overlay
+      content.addEventListener('mousedown', function(e) {{
+        if (e.button !== 0) return;
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartTX = translateX;
+        dragStartTY = translateY;
+        content.style.cursor = 'grabbing';
+        e.preventDefault();
+      }});
+      document.addEventListener('mousemove', function(e) {{
+        if (!isDragging) return;
+        translateX = dragStartTX + (e.clientX - dragStartX);
+        translateY = dragStartTY + (e.clientY - dragStartY);
+        applyTransform();
+      }});
+      document.addEventListener('mouseup', function() {{
+        if (isDragging) {{
+          isDragging = false;
+          content.style.cursor = '';
+        }}
+      }});
+
+      // Close overlay when clicking on the backdrop (not on the content)
+      overlay.addEventListener('click', function(e) {{
+        if (e.target === overlay) {{
+          overlay.classList.remove('visible');
+          resetTransform();
+        }}
+      }});
+      document.addEventListener('keydown', function(e) {{
+        if (e.key === 'Escape') {{
+          overlay.classList.remove('visible');
+          resetTransform();
+        }}
+      }});
+    }})();
+    </script>
 </body>
 </html>"""
 
@@ -983,6 +1191,7 @@ def render_page(
 # ---------------------------------------------------------------------------
 # Main build logic
 # ---------------------------------------------------------------------------
+
 
 def load_config(config_path: str | None) -> dict | None:
     """Load optional JSON config file for page ordering and metadata."""
@@ -1028,7 +1237,9 @@ def build_wiki(
         sys.exit(1)
 
     layout = "hierarchical" if sections else "flat"
-    print(f"Building wiki ({layout} layout): {len(pages)} page(s) from '{input_dir}' -> '{output}'")
+    print(
+        f"Building wiki ({layout} layout): {len(pages)} page(s) from '{input_dir}' -> '{output}'"
+    )
     print(f"Project title: {project_title}")
     if sections:
         print(f"Sections: {len(sections)} top-level section(s)")
@@ -1063,7 +1274,7 @@ def build_wiki(
         first_page = pages[0]["html_name"]
         index_path = output / "index.html"
         index_path.write_text(
-            f'<!DOCTYPE html><html><head>'
+            f"<!DOCTYPE html><html><head>"
             f'<meta http-equiv="refresh" content="0;url={first_page}">'
             f'</head><body><a href="{first_page}">Go to wiki</a></body></html>',
             encoding="utf-8",
@@ -1086,12 +1297,14 @@ Examples:
         """,
     )
     parser.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         default="wiki",
         help="Input directory containing .md files (default: wiki)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         default=None,
         help="Output directory for .html files (default: <input>/html)",
     )
@@ -1112,7 +1325,16 @@ Examples:
     )
 
     args = parser.parse_args()
-    config = load_config(args.config)
+
+    # Auto-discover wiki.json in input directory if --config not specified
+    config_path = args.config
+    if not config_path:
+        auto_config = Path(args.input) / "wiki.json"
+        if auto_config.exists():
+            config_path = str(auto_config)
+            print(f"Auto-detected config: {config_path}")
+
+    config = load_config(config_path)
 
     # Config file can also provide defaults for title / lang
     if config:
