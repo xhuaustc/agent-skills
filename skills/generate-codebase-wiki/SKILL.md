@@ -113,8 +113,8 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create 8-12 pages that would make a comprehensive wiki for this repository
-   (use 4-6 pages for smaller projects)
+1. Create pages that would make a comprehensive wiki for this repository
+   (use 8-12 pages for smaller projects)
 2. Each page should focus on a specific aspect of the codebase
 3. The relevant_files should be actual files from the repository that would be
    used to generate that page
