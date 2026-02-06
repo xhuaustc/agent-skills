@@ -35,6 +35,9 @@ import re
 import sys
 from pathlib import Path
 
+# Directory containing static assets (CSS, JS, SVG) shipped alongside this script
+_ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+
 
 # ---------------------------------------------------------------------------
 # Markdown -> HTML conversion (lightweight, no external dependencies)
@@ -518,399 +521,22 @@ def build_search_index(pages: list[dict]) -> str:
     return json.dumps(index, ensure_ascii=False)
 
 
-def get_nvidia_logo_svg() -> str:
-    """Return the NVIDIA logo SVG (eye mark + NVIDIA text) for the dark header.
+def _load_asset(filename: str) -> str:
+    """Read a static asset file from the assets directory."""
+    path = _ASSETS_DIR / filename
+    return path.read_text(encoding="utf-8")
 
-    Colors: eye mark #76b900 (green), NVIDIA text #ffffff (white).
-    Based on the official NVIDIA horizontal logo.
-    """
-    return (
-        '<svg class="nvidia-logo" xmlns="http://www.w3.org/2000/svg" '
-        'viewBox="0 0 3096.56 1065.98" role="img" aria-label="NVIDIA">'
-        '<path fill="#76b900" d="M562.33,440.33V398.81c4-.28,8.1-.5,12.25-.63,'
-        "113.55-3.57,188,97.56,188,97.56S682.16,607.49,595.9,607.49a104.51,"
-        "104.51,0,0,1-33.57-5.37V476.24c44.21,5.34,53.09,24.86,79.68,69.16"
-        "l59.1-49.84S658,439,585.24,439a214.88,214.88,0,0,0-22.91,1.35m0-137.14"
-        "v62c4.08-.32,8.16-.58,12.25-.73C732.49,359.15,835.35,494,835.35,494"
-        "S717.19,637.65,594.1,637.65a181.36,181.36,0,0,1-31.77-2.8v38.33a208.94,"
-        "208.94,0,0,0,26.46,1.72c114.55,0,197.39-58.5,277.62-127.74,13.29,10.65,"
-        "67.74,36.55,78.94,47.91-76.28,63.85-254,115.31-354.8,115.31-9.71,0-19-"
-        ".58-28.22-1.46v53.87H997.74V303.19Zm0,298.93v32.73C456.38,616,427,505.83,"
-        "427,505.83s50.87-56.37,135.36-65.5v35.91l-.16,0c-44.34-5.33-79,36.1-79,"
-        "36.1s19.41,69.73,79.14,89.8M374.15,501.05S437,408.39,562.33,398.81V365.2"
-        "C423.46,376.35,303.19,494,303.19,494S371.3,690.89,562.33,708.92V673.18"
-        'C422.15,655.55,374.15,501.05,374.15,501.05Z"/>'
-        '<path fill="#000" d="M1782,390l0,301.68h85.2V390Zm-670.22-.41V691.71h86'
-        "V462.33l66.59,0c22.06,0,37.77,5.48,48.4,16.83,13.48,14.36,19,37.51,19,"
-        "79.87V691.71l83.27,0V524.81c0-119.12-75.93-135.19-150.21-135.19h-153"
-        "m807.4.43V691.71h138.19c73.63,0,97.66-12.25,123.65-39.7,18.37-19.27,"
-        "30.24-61.58,30.24-107.82,0-42.4-10.05-80.23-27.58-103.78-31.56-42.13-77"
-        "-50.36-144.92-50.36Zm84.52,65.68h36.63c53.14,0,87.51,23.87,87.51,85.79"
-        "s-34.37,85.8-87.51,85.8h-36.63Zm-344.54-65.68-71.1,239.08-68.14-239.07"
-        "h-92l97.31,301.66h122.79l98.07-301.66Zm591.74,301.66h85.21V390.06h-85.23"
-        "Zm238.84-301.56-119,301.46h84l18.82-53.29h140.8l17.82,53.29h91.21"
-        'L2603.56,390.13Zm55.31,55,51.61,141.23H2491.82Z"/>'
-        "</svg>"
-    )
+
+def get_nvidia_logo_svg() -> str:
+    """Return the NVIDIA logo SVG with the 'nvidia-logo' class attribute."""
+    svg = _load_asset("nvidia-logo.svg").strip()
+    # Inject the CSS class so the logo is styled correctly
+    return svg.replace("<svg ", '<svg class="nvidia-logo" ', 1)
 
 
 def get_css() -> str:
-    """Return the complete CSS for the wiki site (NVIDIA-docs inspired)."""
-    return """
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        :root {
-            --header-height: 48px;
-            --sidebar-width: 260px;
-            --toc-width: 230px;
-            --accent: #76b900;
-            --accent-hover: #85d100;
-            --accent-bg: #f0f8e0;
-            --bg: #ffffff;
-            --sidebar-bg: #ffffff;
-            --header-bg: #ffffff;
-            --header-text: #1a1a1a;
-            --border: #e0e0e0;
-            --border-light: #eeeeee;
-            --text: #1a1a1a;
-            --text-secondary: #616161;
-            --text-tertiary: #888888;
-            --code-bg: #f5f5f5;
-            --code-border: #e0e0e0;
-            --link: #1976d2;
-            --link-hover: #1565c0;
-            --callout-bg: #f8fdf0;
-            --callout-border: #76b900;
-        }
-
-        html { scroll-behavior: smooth; }
-        body {
-            font-family: "NVIDIA Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
-                         Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.7; color: var(--text); background: var(--bg);
-            display: flex; flex-direction: column; min-height: 100vh;
-        }
-
-        /* ==================== Top Header Bar ==================== */
-        header.top-bar {
-            height: var(--header-height); background: var(--header-bg);
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 24px; position: sticky; top: 0; z-index: 200;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-        .top-bar-brand {
-            display: flex; align-items: center; gap: 14px;
-            color: var(--header-text); text-decoration: none;
-        }
-        .top-bar-brand:hover { text-decoration: none; }
-        .nvidia-logo { height: 48px; width: auto; display: block; }
-        .top-bar-title {
-            font-size: 20px; font-weight: 700; color: var(--text);
-            border-left: 1px solid var(--border); padding-left: 14px;
-        }
-        .top-bar-actions { display: flex; align-items: center; gap: 16px; }
-
-        /* Top-bar search */
-        .topbar-search { position: relative; }
-        .topbar-search-input {
-            width: 220px; padding: 5px 32px 5px 10px;
-            border: 1px solid var(--border); border-radius: 4px;
-            background: var(--bg); color: var(--text); font-size: 0.82em;
-            outline: none; transition: border-color 0.2s, width 0.2s;
-        }
-        .topbar-search-input::placeholder { color: var(--text-tertiary); }
-        .topbar-search-input:focus {
-            border-color: var(--accent); width: 300px;
-            box-shadow: 0 0 0 3px rgba(118,185,0,0.12);
-        }
-        .topbar-search-icon {
-            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-            color: var(--text-tertiary); font-size: 0.85em; pointer-events: none;
-        }
-        .search-results {
-            position: absolute; top: calc(100% + 4px); right: 0; width: 420px;
-            background: var(--bg); border: 1px solid var(--border);
-            border-radius: 6px; max-height: 400px; overflow-y: auto;
-            z-index: 300; display: none;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-        }
-        .search-results.visible { display: block; }
-        .search-result-item {
-            display: block; padding: 10px 14px; text-decoration: none;
-            color: var(--text); border-bottom: 1px solid var(--border-light);
-            font-size: 0.85em; transition: background 0.1s;
-        }
-        .search-result-item:last-child { border-bottom: none; }
-        .search-result-item:hover { background: var(--accent-bg); }
-        .search-result-title { font-weight: 600; color: var(--text); }
-        .search-result-snippet {
-            color: var(--text-secondary); font-size: 0.88em; margin-top: 3px;
-            line-height: 1.4;
-        }
-        .search-no-results {
-            padding: 16px; color: var(--text-secondary); font-size: 0.85em;
-            text-align: center;
-        }
-
-        /* ==================== Layout Container ==================== */
-        .layout {
-            display: flex; flex: 1;
-            min-height: calc(100vh - var(--header-height));
-        }
-
-        /* ==================== Left Sidebar ==================== */
-        nav.sidebar {
-            width: var(--sidebar-width); min-width: var(--sidebar-width);
-            padding: 20px 0; background: var(--sidebar-bg);
-            border-right: 1px solid var(--border);
-            height: calc(100vh - var(--header-height));
-            position: sticky; top: var(--header-height);
-            overflow-y: auto; overflow-x: hidden;
-            display: flex; flex-direction: column;
-        }
-        .sidebar-label {
-            font-size: 0.72em; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.08em; color: var(--text-tertiary);
-            padding: 0 20px; margin-bottom: 10px;
-        }
-
-        /* Nav tree */
-        nav.sidebar ul { list-style: none; padding: 0; margin: 0; }
-        nav.sidebar li { margin: 0; }
-        nav.sidebar > ul > li > a,
-        nav.sidebar > ul > li.nav-section {
-            /* top-level items get a subtle separator */
-        }
-        nav.sidebar a {
-            color: var(--text); text-decoration: none; display: block;
-            padding: 5px 20px; font-size: 0.84em; line-height: 1.5;
-            border-left: 3px solid transparent;
-            transition: background 0.12s, border-color 0.12s;
-        }
-        nav.sidebar a:hover {
-            background: #f5f5f5; text-decoration: none;
-        }
-        nav.sidebar a.active {
-            color: var(--text); font-weight: 600;
-            border-left: 3px solid var(--accent);
-            background: var(--accent-bg);
-        }
-
-        /* Section grouping */
-        .nav-section { margin: 2px 0; }
-        .nav-section details { border: none; padding: 0; margin: 0; background: none; }
-        .nav-section summary.nav-section-title {
-            cursor: pointer; font-weight: 600; font-size: 0.84em;
-            color: var(--text); padding: 6px 20px; list-style: none;
-            display: flex; align-items: center; gap: 6px;
-            border-left: 3px solid transparent;
-            transition: background 0.12s;
-            user-select: none;
-        }
-        .nav-section summary.nav-section-title::-webkit-details-marker { display: none; }
-        .nav-section summary.nav-section-title::before {
-            content: ""; display: inline-block;
-            width: 0; height: 0;
-            border-left: 5px solid var(--text-secondary);
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-            transition: transform 0.15s;
-            flex-shrink: 0;
-        }
-        .nav-section details[open] > summary.nav-section-title::before {
-            transform: rotate(90deg);
-        }
-        .nav-section summary.nav-section-title:hover { background: #f5f5f5; }
-        .nav-section-pages { padding-left: 12px !important; }
-
-        /* ==================== Main Content ==================== */
-        main {
-            flex: 1; padding: 28px 48px 60px; min-width: 0;
-        }
-
-        /* Breadcrumbs */
-        .breadcrumbs {
-            font-size: 0.8em; color: var(--text-secondary); margin-bottom: 20px;
-            display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
-        }
-        .breadcrumb-home {
-            display: inline-flex; align-items: center; color: var(--text-secondary);
-            text-decoration: none;
-        }
-        .breadcrumb-home:hover { color: var(--accent); }
-        .breadcrumb-home svg { width: 14px; height: 14px; }
-        .breadcrumb-sep { margin: 0 4px; color: var(--text-tertiary); font-size: 0.85em; }
-        .breadcrumb-item { color: var(--text-secondary); }
-        .breadcrumb-current { color: var(--text); font-weight: 500; }
-
-        /* Typography */
-        h1 {
-            font-size: 1.85em; font-weight: 700; color: var(--text);
-            margin: 0 0 16px 0; padding: 0; line-height: 1.25;
-            border: none;
-        }
-        h2 {
-            font-size: 1.35em; font-weight: 700; color: var(--text);
-            margin: 36px 0 12px; padding: 0; line-height: 1.3;
-            border: none;
-        }
-        h3 {
-            font-size: 1.1em; font-weight: 600; color: var(--text);
-            margin: 28px 0 8px;
-        }
-        h4 {
-            font-size: 0.95em; font-weight: 600; color: var(--text);
-            margin: 20px 0 6px;
-        }
-        p { margin: 0 0 14px; }
-
-        /* Inline code */
-        code {
-            background-color: var(--code-bg); padding: 0.15em 0.45em;
-            border-radius: 3px; border: 1px solid var(--code-border);
-            font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
-                         Menlo, Consolas, "Liberation Mono", monospace;
-            font-size: 0.85em; color: #c7254e;
-        }
-
-        /* Code blocks */
-        pre {
-            background-color: #263238; color: #eeffff;
-            padding: 16px 20px; border-radius: 6px;
-            overflow-x: auto; line-height: 1.5; margin: 16px 0;
-            font-size: 0.85em;
-        }
-        pre code {
-            background: none; padding: 0; border: none;
-            font-size: 1em; color: inherit;
-        }
-        pre strong, pre b {
-            display: block; color: #80cbc4; font-weight: 700;
-            font-size: 1.1em; margin-top: 12px;
-            padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.12);
-        }
-        pre strong:first-child, pre b:first-child,
-        pre code > strong:first-child, pre code > b:first-child {
-            margin-top: 0; padding-top: 0; border-top: none;
-        }
-        pre h1, pre h2, pre h3, pre h4, pre h5, pre h6 {
-            color: #ffcc80; font-weight: 700; margin: 14px 0 6px;
-            border: none; padding: 0;
-        }
-        pre h1 { font-size: 1.3em; color: #ffe082; }
-        pre h2 { font-size: 1.15em; }
-        pre h3 { font-size: 1.05em; }
-
-        /* Tables */
-        .table-wrapper { overflow-x: auto; margin: 16px 0; }
-        table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
-        th, td {
-            border: 1px solid var(--border); padding: 10px 14px; text-align: left;
-        }
-        th {
-            background: #f7f7f7; font-weight: 600; color: var(--text);
-            font-size: 0.9em;
-        }
-        td { color: var(--text); }
-        tr:nth-child(even) td { background: #fafafa; }
-
-        /* Blockquotes / callouts */
-        blockquote {
-            border-left: 4px solid var(--callout-border);
-            background: var(--callout-bg); color: var(--text);
-            padding: 12px 16px; margin: 16px 0;
-            border-radius: 0 6px 6px 0; font-size: 0.92em;
-        }
-
-        /* Details / Summary */
-        details {
-            border: 1px solid var(--border); border-radius: 6px;
-            padding: 14px 16px; margin-bottom: 16px; background: #fafafa;
-        }
-        details[open] { background: var(--bg); }
-        summary { cursor: pointer; font-weight: 600; font-size: 0.92em; }
-
-        /* Links */
-        main a { color: var(--link); text-decoration: none; }
-        main a:hover { color: var(--link-hover); text-decoration: underline; }
-
-        /* Images */
-        img { max-width: 100%; height: auto; border-radius: 4px; }
-        hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
-
-        /* Lists */
-        ul, ol { margin: 0 0 14px 0; padding-left: 24px; }
-        li { margin-bottom: 4px; }
-        li > ul, li > ol { margin-top: 4px; margin-bottom: 0; }
-
-        /* Mermaid diagrams */
-        .mermaid {
-            margin: 24px 0; text-align: center;
-            background: #fafafa; border-radius: 8px; padding: 16px;
-            cursor: zoom-in; transition: box-shadow 0.2s;
-        }
-        .mermaid:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-
-        /* Mermaid lightbox overlay */
-        .mermaid-overlay {
-            display: none; position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
-            align-items: center; justify-content: center; cursor: zoom-out;
-        }
-        .mermaid-overlay.visible { display: flex; }
-        .mermaid-overlay-content {
-            background: #fff; border-radius: 12px; padding: 32px;
-            width: 90vw; height: 88vh; overflow: hidden;
-            box-shadow: 0 12px 48px rgba(0,0,0,0.25);
-            display: flex; align-items: center; justify-content: center;
-            cursor: grab; position: relative;
-        }
-        .mermaid-overlay-content svg {
-            display: block; width: 100%; height: auto; max-height: 85vh;
-            transform-origin: center center;
-        }
-
-        /* ==================== Right TOC ("On this page") ==================== */
-        aside.toc {
-            width: var(--toc-width); min-width: var(--toc-width);
-            padding: 28px 16px 28px 20px;
-            height: calc(100vh - var(--header-height));
-            position: sticky; top: var(--header-height);
-            overflow-y: auto; font-size: 0.8em;
-            border-left: 1px solid var(--border-light);
-        }
-        .toc-title {
-            font-weight: 700; color: var(--text); font-size: 0.85em;
-            margin-bottom: 12px; letter-spacing: 0.02em;
-        }
-        .toc-item {
-            display: block; color: var(--text-secondary); text-decoration: none;
-            padding: 4px 0 4px 10px; margin: 0;
-            border-left: 2px solid transparent;
-            line-height: 1.5; transition: color 0.12s, border-color 0.12s;
-        }
-        .toc-item:hover {
-            color: var(--accent); border-left-color: var(--accent);
-            text-decoration: none;
-        }
-
-        /* ==================== Responsive ==================== */
-        @media (max-width: 1200px) {
-            aside.toc { display: none; }
-        }
-        @media (max-width: 768px) {
-            header.top-bar { padding: 0 16px; }
-            .topbar-search-input { width: 160px; }
-            .topbar-search-input:focus { width: 200px; }
-            .layout { flex-direction: column; }
-            nav.sidebar {
-                width: 100%; height: auto; position: relative;
-                border-right: none; border-bottom: 1px solid var(--border);
-                min-width: unset; top: 0;
-            }
-            main { padding: 20px 16px; }
-        }
-"""
+    """Return the complete CSS for the wiki site (loaded from assets/wiki.css)."""
+    return _load_asset("wiki.css")
 
 
 def get_search_script(search_index_json: str, base_prefix: str = "") -> str:
@@ -919,66 +545,15 @@ def get_search_script(search_index_json: str, base_prefix: str = "") -> str:
     *base_prefix* is prepended to search-result URLs so that pages in
     subdirectories link correctly (e.g. ``../`` for a page one level deep).
     """
-    return f"""
-    <script>
-    (function() {{
-      var searchIndex = {search_index_json};
-      var basePrefix = "{base_prefix}";
-      var input = document.getElementById('wiki-search');
-      var results = document.getElementById('search-results');
-      if (!input || !results) return;
-
-      input.addEventListener('input', function() {{
-        var q = this.value.trim().toLowerCase();
-        if (q.length < 2) {{ results.className = 'search-results'; results.innerHTML = ''; return; }}
-
-        var matches = [];
-        for (var i = 0; i < searchIndex.length; i++) {{
-          var page = searchIndex[i];
-          var titleMatch = page.title.toLowerCase().indexOf(q) !== -1;
-          var textMatch = page.text.toLowerCase().indexOf(q) !== -1;
-          if (titleMatch || textMatch) {{
-            var snippet = '';
-            if (textMatch) {{
-              var idx = page.text.toLowerCase().indexOf(q);
-              var start = Math.max(0, idx - 40);
-              var end = Math.min(page.text.length, idx + q.length + 60);
-              snippet = (start > 0 ? '...' : '') + page.text.substring(start, end) + (end < page.text.length ? '...' : '');
-            }}
-            matches.push({{ title: page.title, url: basePrefix + page.url, snippet: snippet, titleMatch: titleMatch }});
-          }}
-        }}
-
-        matches.sort(function(a, b) {{ return (b.titleMatch ? 1 : 0) - (a.titleMatch ? 1 : 0); }});
-
-        if (matches.length === 0) {{
-          results.innerHTML = '<div class="search-no-results">No results found</div>';
-        }} else {{
-          var html = '';
-          for (var j = 0; j < Math.min(matches.length, 10); j++) {{
-            var m = matches[j];
-            html += '<a class="search-result-item" href="' + m.url + '">';
-            html += '<div class="search-result-title">' + m.title + '</div>';
-            if (m.snippet) html += '<div class="search-result-snippet">' + m.snippet + '</div>';
-            html += '</a>';
-          }}
-          results.innerHTML = html;
-        }}
-        results.className = 'search-results visible';
-      }});
-
-      document.addEventListener('click', function(e) {{
-        if (!results.contains(e.target) && e.target !== input) {{
-          results.className = 'search-results';
-        }}
-      }});
-
-      input.addEventListener('focus', function() {{
-        if (this.value.trim().length >= 2) results.className = 'search-results visible';
-      }});
-    }})();
-    </script>
-    """
+    search_js = _load_asset("search.js")
+    # Inject the search index and base prefix as globals before the IIFE
+    return (
+        "<script>\n"
+        f"window.__wikiSearchIndex = {search_index_json};\n"
+        f'window.__wikiBasePrefix = "{base_prefix}";\n'
+        f"{search_js}\n"
+        "</script>"
+    )
 
 
 def render_page(
@@ -1027,27 +602,29 @@ def render_page(
             {toc_html}
         </aside>"""
 
+    # Load static assets
+    css = get_css()
+    logo_svg = get_nvidia_logo_svg()
+    lightbox_js = _load_asset("mermaid-lightbox.js")
+    home_href = relative_href(current_html, "index.html")
+
     return f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title} - {project_title}</title>
-    <style>{get_css()}</style>
+    <style>{css}</style>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       mermaid.initialize({{ startOnLoad: true }});
-      // After mermaid renders, mark rendered containers for lightbox
       await mermaid.run();
-      document.querySelectorAll('.mermaid[data-processed]').forEach(function(el) {{
-        el.dataset.lightbox = 'true';
-      }});
     </script>
 </head>
 <body>
     <header class="top-bar">
-        <a class="top-bar-brand" href="{relative_href(current_html, "index.html")}">
-            {get_nvidia_logo_svg()}
+        <a class="top-bar-brand" href="{home_href}">
+            {logo_svg}
             <span class="top-bar-title">{project_title}</span>
         </a>
         <div class="top-bar-actions">
@@ -1075,114 +652,7 @@ def render_page(
     </div>
     {search_script}
     <script>
-    (function() {{
-      var overlay = document.getElementById('mermaid-overlay');
-      var content = document.getElementById('mermaid-overlay-content');
-      if (!overlay || !content) return;
-
-      var scale = 1;
-      var translateX = 0;
-      var translateY = 0;
-      var isDragging = false;
-      var dragStartX = 0;
-      var dragStartY = 0;
-      var dragStartTX = 0;
-      var dragStartTY = 0;
-
-      function applyTransform() {{
-        var svg = content.querySelector('svg');
-        if (svg) svg.style.transform = 'translate(' + translateX + 'px,' + translateY + 'px) scale(' + scale + ')';
-      }}
-
-      function resetTransform() {{
-        scale = 1; translateX = 0; translateY = 0;
-      }}
-
-      // Use event delegation so it works even after mermaid replaces DOM nodes
-      document.addEventListener('click', function(e) {{
-        var target = e.target.closest('.mermaid');
-        if (target) {{
-          var svg = target.querySelector('svg');
-          if (svg) {{
-            content.innerHTML = '';
-            var clone = svg.cloneNode(true);
-            // Ensure viewBox exists so SVG scales properly when we resize it
-            if (!clone.getAttribute('viewBox')) {{
-              var w = svg.getAttribute('width') || svg.getBoundingClientRect().width;
-              var h = svg.getAttribute('height') || svg.getBoundingClientRect().height;
-              w = parseFloat(w) || 800;
-              h = parseFloat(h) || 600;
-              clone.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-            }}
-            clone.removeAttribute('width');
-            clone.removeAttribute('height');
-            clone.removeAttribute('style');
-            clone.style.width = '100%';
-            clone.style.height = 'auto';
-            clone.style.maxHeight = '85vh';
-            clone.style.transformOrigin = 'center center';
-            clone.style.transition = 'transform 0.15s ease';
-            content.appendChild(clone);
-            resetTransform();
-            overlay.classList.add('visible');
-          }}
-        }}
-      }});
-
-      // Mouse wheel zoom inside the overlay
-      content.addEventListener('wheel', function(e) {{
-        e.preventDefault();
-        var delta = e.deltaY > 0 ? -0.1 : 0.1;
-        var newScale = Math.min(Math.max(scale + delta, 0.2), 10);
-        // Zoom toward cursor position
-        var rect = content.getBoundingClientRect();
-        var cx = e.clientX - rect.left - rect.width / 2;
-        var cy = e.clientY - rect.top - rect.height / 2;
-        var ratio = newScale / scale;
-        translateX = cx - ratio * (cx - translateX);
-        translateY = cy - ratio * (cy - translateY);
-        scale = newScale;
-        applyTransform();
-      }}, {{ passive: false }});
-
-      // Mouse drag to pan inside the overlay
-      content.addEventListener('mousedown', function(e) {{
-        if (e.button !== 0) return;
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragStartTX = translateX;
-        dragStartTY = translateY;
-        content.style.cursor = 'grabbing';
-        e.preventDefault();
-      }});
-      document.addEventListener('mousemove', function(e) {{
-        if (!isDragging) return;
-        translateX = dragStartTX + (e.clientX - dragStartX);
-        translateY = dragStartTY + (e.clientY - dragStartY);
-        applyTransform();
-      }});
-      document.addEventListener('mouseup', function() {{
-        if (isDragging) {{
-          isDragging = false;
-          content.style.cursor = '';
-        }}
-      }});
-
-      // Close overlay when clicking on the backdrop (not on the content)
-      overlay.addEventListener('click', function(e) {{
-        if (e.target === overlay) {{
-          overlay.classList.remove('visible');
-          resetTransform();
-        }}
-      }});
-      document.addEventListener('keydown', function(e) {{
-        if (e.key === 'Escape') {{
-          overlay.classList.remove('visible');
-          resetTransform();
-        }}
-      }});
-    }})();
+{lightbox_js}
     </script>
 </body>
 </html>"""
