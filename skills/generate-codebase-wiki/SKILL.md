@@ -253,7 +253,8 @@ Parse the XML plan from Step 2. For each `<page>` entry:
     -   For **architecture pages**, read entry points, main config files, and dependency declarations.
     -   For **service relationship pages**, read client/SDK code, connection configs, and integration adapters.
 2.  Generate a Markdown file using the appropriate **Page Content Generation Prompt** below (choose based on `page_type`).
-3.  Save each file to the wiki output directory. Organize files into subdirectories matching the section hierarchy:
+3.  Save each Markdown file to the `wiki/` directory. Organize files into subdirectories matching the section hierarchy.
+    After running the build script, the `wiki/html/` directory will mirror the same structure with `.html` files:
     ```
     wiki/
     ├── overview.md
@@ -267,10 +268,25 @@ Parse the XML plan from Step 2. For each `<page>` entry:
     ├── api/
     │   ├── rest-api.md
     │   └── grpc-api.md
-    └── deployment/
-        └── infrastructure.md
+    ├── deployment/
+    │   └── infrastructure.md
+    └── html/                 ← generated HTML output (mirrors md structure)
+        ├── index.html
+        ├── overview.html
+        ├── architecture/
+        │   ├── system-overview.html
+        │   └── design-decisions.html
+        ├── modules/
+        │   ├── auth-module.html
+        │   ├── payment-module.html
+        │   └── notification-module.html
+        ├── api/
+        │   ├── rest-api.html
+        │   └── grpc-api.html
+        └── deployment/
+            └── infrastructure.html
     ```
-    For small repos, a flat structure is acceptable.
+    For small repos, a flat structure is acceptable (all `.md` in `wiki/`, all `.html` in `wiki/html/`).
 
 <details>
 <summary><strong>Page Content Generation Prompt — General (click to expand)</strong></summary>
@@ -597,13 +613,15 @@ then the script is at:
 
 **Basic usage (small repos, flat structure):**
 ```bash
-python /path/to/skills/generate-codebase-wiki/scripts/build_wiki.py -i wiki/ -o wiki/ --title "Project Name Wiki"
+python /path/to/skills/generate-codebase-wiki/scripts/build_wiki.py -i wiki/ --title "Project Name Wiki"
 ```
+This reads `wiki/*.md` and outputs HTML to `wiki/html/*.html`.
 
 **With config for hierarchical structure (recommended for medium/large repos):**
 ```bash
 python /path/to/skills/generate-codebase-wiki/scripts/build_wiki.py -i wiki/ --config wiki.json
 ```
+This reads `wiki/**/*.md` and outputs HTML to `wiki/html/**/*.html`, preserving the subdirectory structure.
 
 Example `wiki.json` for a **small repo** (flat structure):
 ```json
@@ -680,7 +698,7 @@ Example `wiki.json` for a **large repo** (hierarchical structure):
 | Flag           | Default         | Description                                  |
 | -------------- | --------------- | -------------------------------------------- |
 | `-i, --input`  | `wiki`          | Input directory containing `.md` files       |
-| `-o, --output` | same as input   | Output directory for `.html` files           |
+| `-o, --output` | `<input>/html`  | Output directory for `.html` files           |
 | `--title`      | `Codebase Wiki` | Project title (sidebar header & HTML title)  |
 | `--lang`       | `en`            | HTML `lang` attribute (`en`, `zh-CN`, etc.)  |
 | `--config`     | *(none)*        | JSON config for section hierarchy & metadata |

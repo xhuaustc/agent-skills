@@ -1011,7 +1011,7 @@ def build_wiki(
     input_dir : str
         Directory containing .md source files (searched recursively).
     output_dir : str | None
-        Directory for generated .html files. Defaults to *input_dir*.
+        Directory for generated .html files. Defaults to *input_dir*/html.
     project_title : str
         Title shown in the sidebar header and <title> tag.
     lang : str
@@ -1019,7 +1019,7 @@ def build_wiki(
     config : dict | None
         Optional config dict (from JSON) with page ordering / section hierarchy.
     """
-    output = Path(output_dir) if output_dir else Path(input_dir)
+    output = Path(output_dir) if output_dir else Path(input_dir) / "html"
     output.mkdir(parents=True, exist_ok=True)
 
     pages, sections = discover_pages(input_dir, config)
@@ -1079,9 +1079,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                                  # ./wiki/*.md -> ./wiki/*.html
+  %(prog)s                                  # ./wiki/*.md -> ./wiki/html/*.html
   %(prog)s -i docs/ -o site/                # docs/*.md   -> site/*.html
-  %(prog)s -i wiki/ --title "My Project"    # custom project title
+  %(prog)s -i wiki/ --title "My Project"    # wiki/*.md   -> wiki/html/*.html
   %(prog)s --config wiki.json               # use config for section hierarchy
         """,
     )
@@ -1093,7 +1093,7 @@ Examples:
     parser.add_argument(
         "-o", "--output",
         default=None,
-        help="Output directory for .html files (default: same as input)",
+        help="Output directory for .html files (default: <input>/html)",
     )
     parser.add_argument(
         "--title",
