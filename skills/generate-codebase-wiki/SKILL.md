@@ -91,7 +91,7 @@ to the repository's complexity:
 - Large repos (300+ files): 16-40+ pages, 2-3 levels of sections with
   deep-dive sub-pages
 
-IMPORTANT: The wiki content will be generated in english language.
+IMPORTANT: The wiki content will be generated in ${language} language.
 
 When designing the wiki structure, ALWAYS include pages that would benefit
 from visual diagrams, such as:
@@ -400,7 +400,7 @@ Based ONLY on the content of the source files:
 9.  **Cross-references:** When mentioning concepts covered in other wiki pages,
     add cross-reference links: [Related Topic](../section/page-name.md).
 
-IMPORTANT: Generate the content in english language.
+IMPORTANT: Generate the content in ${language}$ language.
 
 Remember:
 - Ground every claim in the provided source files.
@@ -462,7 +462,7 @@ This is an ARCHITECTURE page. It MUST include:
     - Where these concerns are implemented
 
 Source citations required for every claim. Minimum 5 source files cited.
-Generate in english language.
+Generate in ${language}$ language.
 ```
 
 </details>
@@ -520,7 +520,7 @@ This is an API REFERENCE page. It MUST include:
     - Rate limiting details (if found in code)
 
 Source citations required for every endpoint. Minimum 5 source files cited.
-Generate in english language.
+Generate in ${language}$ language.
 ```
 
 </details>
@@ -586,7 +586,7 @@ This is a SERVICE RELATIONSHIPS page. It MUST include:
     - Alerting configuration
 
 Source citations required for every integration. Minimum 5 source files cited.
-Generate in english language.
+Generate in ${language}$ language.
 ```
 
 </details>
